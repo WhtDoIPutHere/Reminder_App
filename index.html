@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>School Smart Reminder Pro</title>
+  <style>
+    body { font-family: Arial; background:#eef2f7; padding:20px; }
+    .card { background:white; padding:15px; border-radius:12px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}    
+    select, input, button { margin:5px; padding:6px; border-radius:6px; }
+    .big { font-size:18px; font-weight:bold; }
+    .row { display:flex; flex-wrap:wrap; gap:6px; }
+  </style>
+</head>
+<body>
+
+<h2>Reminder</h2>
+
+<div class="card">
+  <button onclick="toggleDay()" id="dayBtn"></button>
+</div>
+
+<div class="card">
+  <div class="big" id="current"></div>
+  <div id="nextPassing"></div>
+  <div id="nextClass"></div>
+</div>
+
+<div class="card">
+  <h3>School Reminder</h3>
+  <div class="row">
+    <select id="weekday">
+      <option value="1">Monday</option>
+      <option value="2">Tuesday</option>
+      <option value="3">Wednesday</option>
+      <option value="4">Thursday</option>
+      <option value="5">Friday</option>
+    </select>
+
+    <select id="period"></select>
+
+    <select id="trigger">
+      <option value="start">Start</option>
+      <option value="middle">Middle</option>
+      <option value="end">End</option>
+      <option value="passing">Last 5 min</option>
+    </select>
+
+    <input id="customText" placeholder="Optional text">
+
+    <button onclick="addSchoolReminder()">Add</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Custom Reminder</h3>
+  <div class="row">
+    <input id="customTitle" placeholder="Reminder">
+    <input id="customTime" type="datetime-local">
+    <select id="repeat">
+      <option value="none">No repeat</option>
+      <option value="60000">Every 1 min</option>
+      <option value="300000">Every 5 min</option>
+      <option value="3600000">Hourly</option>
+      <option value="86400000">Daily</option>
+    </select>
+    <button onclick="addCustomReminder()">Add</button>
+  </div>
+</div>
+
+<div id="list"></div>
+
+<script>
+const schedule = {
+  Monday: [
+    { name:"1/5", start:"08:30", end:"10:02" },
+    { name:"passing", start:"10:02", end:"10:08" },
+    { name:"2/6", start:"10:08", end:"11:40" },
+    { name:"passing", start:"11:40", end:"11:46" },
+    { name:"3/7", start:"11:46", end:"13:18" },
+    { name:"passing", start:"13:18", end:"13:22" },
+    { name:"3/7-lunch", start:"13:22", end:"13:52" },
+    { name:"passing", start:"13:52", end:"13:58" },
+    { name:"4/8", start:"13:58", end:"15:30" }
+  ],
+  Tuesday: [],
+  Wednesday: [
+    { name:"1/5", start:"09:00", end:"10:15" },
+    { name:"passing", start:"10:15", end:"10:21" },
+    { name:"2/6", start:"10:21", end:"11:36" },
+    { name:"passing", start:"11:36", end:"11:42" },
+    { name:"Advisory", start:"11:42", end:"12:14" },
+    { name:"passing", start:"12:14", end:"12:20" },
+    { name:"3/7", start:"12:20", end:"13:35" },
+    { name:"passing", start:"13:35", end:"13:39" },
+    { name:"3/7-lunch", start:"13:39", end:"14:09" },
+    { name:"passing", start:"14:09", end:"14:15" },
+    { name:"4/8", start:"14:15", end:"15:30" }
+  ],
+  Thursday: [
+    { name:"1/5", start:"08:30", end:"09:49" },
+    { name:"passing", start:"09:49", end:"09:55" },
+    { name:"2/6", start:"09:55", end:"11:14" },
+    { name:"passing", start:"11:14", end:"11:20" },
+    { name:"Access", start:"11:20", end:"12:06" },
+    { name:"passing", start:"12:06", end:"12:12" },
+    { name:"3/7", start:"12:12", end:"13:31" },
+    { name:"passing", start:"13:31", end:"13:35" },
+    { name:"3/7-lunch", start:"13:35", end:"14:05" },
+    { name:"passing", start:"14:05", end:"14:11" },
+    { name:"4/8", start:"14:11", end:"15:30" }
+  ],
+  Friday: [
+    { name:"1/5", start:"08:30", end:"09:49" },
+    { name:"passing", start:"09:49", end:"09:55" },
+    { name:"2/6", start:"09:55", end:"11:14" },
+    { name:"passing", start:"11:14", end:"11:20" },
+    { name:"Access", start:"11:20", end:"12:06" },
+    { name:"passing", start:"12:06", end:"12:12" },
+    { name:"3/7", start:"12:12", end:"13:31" },
+    { name:"passing", start:"13:31", end:"13:35" },
+    { name:"3/7-lunch", start:"13:35", end:"14:05" },
+    { name:"passing", start:"14:05", end:"14:11" },
+    { name:"4/8", start:"14:11", end:"15:30" }
+  ]
+};
+
+schedule.Tuesday = JSON.parse(JSON.stringify(schedule.Monday));
+schedule.Wednesday = JSON.parse(JSON.stringify(schedule.Monday));
+schedule.Thursday = JSON.parse(JSON.stringify(schedule.Monday));
+schedule.Friday = JSON.parse(JSON.stringify(schedule.Monday));
+
+const classes = {
+  A:{1:"Graphic Design",2:"AP Calc",3:"Chemistry",4:"Drafting"},
+  B:{5:"Psychology",6:"Health",7:"English",8:"Programming"}
+};
+
+let reminders = JSON.parse(localStorage.getItem("reminders")||"[]");
+let dayType = localStorage.getItem("dayType")||"A";
+let lastDate = localStorage.getItem("lastDate")||"";
+
+function toggleDay(){ 
+  dayType = dayType==='A'?'B':'A'; 
+  saveDay(); 
+}
+
+function saveDay(){ 
+  localStorage.setItem("dayType",dayType); 
+  const today = new Date().toDateString();
+  localStorage.setItem("lastDate",today);
+  lastDate = today;
+}
+
+function autoDay(){ 
+  const storedDate = localStorage.getItem("lastDate") || "";
+  if(new Date().toDateString() !== storedDate){ 
+    dayType = dayType==='A'?'B':'A'; 
+    saveDay(); 
+  }
+}
+
+function timeToDate(t){ 
+  let [h,m]=t.split(":"); 
+  let d=new Date(); 
+  d.setHours(h,m,0,0); 
+  return d; 
+}
+
+function getClass(name){
+  if(name.includes('/')){
+    let n = dayType==='A'?name.split('/')[0]:name.split('/')[1];
+    return classes[dayType][n];
+  }
+  return name==="passing"?"Passing":name;
+}
+
+function updateToday(){
+  autoDay();
+  document.getElementById("dayBtn").innerText = dayType+" Day";
+
+  let now=new Date();
+  let dayName=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+  if(!schedule[dayName]) return;
+
+  let periods=schedule[dayName];
+
+  document.getElementById("current").textContent="";
+  document.getElementById("nextPassing").textContent="";
+  document.getElementById("nextClass").textContent="";
+
+  for(let i=0;i<periods.length;i++){
+    let p=periods[i];
+    let s=timeToDate(p.start), e=timeToDate(p.end);
+
+    if(now>=s && now<=e){
+      document.getElementById("current").textContent="Now: "+getClass(p.name);
+
+      for(let j=i+1;j<periods.length;j++){
+        if(periods[j].name==="passing"){
+          document.getElementById("nextPassing").textContent="Next Passing: "+periods[j].start;
+        } else {
+          document.getElementById("nextClass").textContent="Next Class: "+getClass(periods[j].name)+" @ "+periods[j].start;
+          break;
+        }
+      }
+      break;
+    }
+  }
+}
+
+function populatePeriods(){
+  let day=["","Monday","Tuesday","Wednesday","Thursday","Friday"][document.getElementById("weekday").value];
+  let sel=document.getElementById("period"); sel.innerHTML="";
+  schedule[day].forEach((p,i)=>{
+    if(p.name!=="passing"){
+      let o=document.createElement("option"); o.value=i; o.textContent=p.name; sel.appendChild(o);
+    }
+  });
+}
+
+document.getElementById("weekday").onchange=populatePeriods;
+populatePeriods();
+
+function addSchoolReminder(){
+  let day=["","Monday","Tuesday","Wednesday","Thursday","Friday"][document.getElementById("weekday").value];
+  let p=schedule[day][document.getElementById("period").value];
+  let trig=document.getElementById("trigger").value;
+  let txt=document.getElementById("customText").value;
+
+  let start=timeToDate(p.start), end=timeToDate(p.end);
+  let t = trig==="start"?start: trig==="end"?end: trig==="middle"?new Date((start.getTime()+end.getTime())/2): new Date(end.getTime()-300000);
+
+  reminders.push({id:Date.now(), text:(txt||getClass(p.name))+" ("+trig+")", time:t.getTime(), repeat:"none", fired:false});
+  save(); render();
+}
+
+function addCustomReminder(){
+  let t=new Date(document.getElementById("customTime").value);
+  reminders.push({
+    id:Date.now(),
+    text:document.getElementById("customTitle").value,
+    time:t.getTime(),
+    repeat:parseInt(document.getElementById("repeat").value),
+    fired:false
+  });
+  save(); render();
+}
+
+function render(){
+  let list=document.getElementById("list"); list.innerHTML="";
+  reminders.forEach(r=>{
+    let d=document.createElement("div"); d.className="card";
+    d.innerHTML=r.text+" <button onclick='del("+r.id+")'>X</button>";
+    list.appendChild(d);
+  });
+}
+
+function del(id){ reminders=reminders.filter(r=>r.id!==id); save(); render(); }
+function save(){ localStorage.setItem("reminders",JSON.stringify(reminders)); }
+
+function notify(t){
+  if(Notification.permission==="granted") new Notification(t);
+}
+
+function check(){
+  let now=Date.now();
+  let nowDate=new Date();
+
+  reminders.forEach(r=>{
+    if(!r.time) return;
+
+    if(now>=r.time && !r.fired){
+      notify(r.text);
+
+      if(r.repeat && r.repeat!="none"){
+        r.time += r.repeat;
+      } else {
+        r.fired = true;
+      }
+    }
+  });
+
+  save();
+}
+
+if(Notification.permission!="granted") Notification.requestPermission();
+setInterval(()=>{updateToday();check();},1000);
+render();
+</script>
+
+</body>
+</html>
