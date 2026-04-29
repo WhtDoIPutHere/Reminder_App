@@ -55,13 +55,39 @@
   <div class="row">
     <input id="customTitle" placeholder="Reminder">
     <input id="customTime" type="datetime-local">
-    <select id="repeat">
-      <option value="none">No repeat</option>
-      <option value="60000">Every 1 min</option>
-      <option value="300000">Every 5 min</option>
-      <option value="3600000">Hourly</option>
-      <option value="86400000">Daily</option>
+<select id="repeatMode" onchange="toggleRepeatUI()">
+  <option value="none">No Repeat</option>
+  <option value="interval">Repeat</option>
+  <option value="custom">Custom Schedule</option>
+</select>
+
+<div id="repeatOptions" style="display:none; margin-top:5px;">
+  
+  <div id="intervalBox">
+    Repeat every
+    <input id="repeatValue" type="number" min="1" value="5" style="width:60px;">
+    <select id="repeatUnit">
+      <option value="60000">Minutes</option>
+      <option value="3600000">Hours</option>
+      <option value="86400000">Days</option>
+      <option value="604800000">Weeks</option>
+      <option value="2592000000">Months</option>
     </select>
+  </div>
+
+<div id="customBox" style="display:none; margin-top:10px;">
+  <div><b>Set time per weekday:</b></div>
+
+  <div class="row">
+    <div>Mon <input type="time" id="timeMonday"></div>
+    <div>Tue <input type="time" id="timeTuesday"></div>
+    <div>Wed <input type="time" id="timeWednesday"></div>
+    <div>Thu <input type="time" id="timeThursday"></div>
+    <div>Fri <input type="time" id="timeFriday"></div>
+  </div>
+</div>
+
+</div>
     <button onclick="addCustomReminder()">Add</button>
   </div>
 </div>
@@ -136,6 +162,19 @@ const classes = {
 let reminders = JSON.parse(localStorage.getItem("reminders")||"[]");
 let dayType = localStorage.getItem("dayType")||"A";
 let lastDate = localStorage.getItem("lastDate")||"";
+
+function toggleRepeatUI(){
+  const mode = document.getElementById("repeatMode").value;
+
+  document.getElementById("repeatOptions").style.display =
+    mode === "none" ? "none" : "block";
+
+  document.getElementById("intervalBox").style.display =
+    mode === "interval" ? "block" : "none";
+
+  document.getElementById("customBox").style.display =
+    mode === "custom" ? "block" : "none";
+}
 
 function toggleDay(){ 
   dayType = dayType==='A'?'B':'A'; 
@@ -233,15 +272,36 @@ function addSchoolReminder(){
 }
 
 function addCustomReminder(){
-  let t=new Date(document.getElementById("customTime").value);
-  reminders.push({
-    id:Date.now(),
-    text:document.getElementById("customTitle").value,
-    time:t.getTime(),
-    repeat:parseInt(document.getElementById("repeat").value),
-    fired:false
-  });
-  save(); render();
+  let mode = document.getElementById("repeatMode").value;
+
+  let reminder = {
+    id: Date.now(),
+    text: document.getElementById("customTitle").value,
+    time: new Date(document.getElementById("customTime").value).getTime(),
+    repeat: null,
+    fired: false,
+    mode: mode
+  };
+
+  if(mode === "interval"){
+    let value = parseInt(document.getElementById("repeatValue").value);
+    let unit = parseInt(document.getElementById("repeatUnit").value);
+    reminder.repeat = value * unit;
+  }
+
+if(mode === "custom"){
+  reminder.weeklyTimes = {
+    Monday: document.getElementById("timeMonday").value,
+    Tuesday: document.getElementById("timeTuesday").value,
+    Wednesday: document.getElementById("timeWednesday").value,
+    Thursday: document.getElementById("timeThursday").value,
+    Friday: document.getElementById("timeFriday").value
+  };
+}
+
+  reminders.push(reminder);
+  save();
+  render();
 }
 
 function render(){
@@ -261,16 +321,31 @@ function notify(t){
 }
 
 function check(){
-  let now=Date.now();
-  let nowDate=new Date();
+  let now = new Date();
 
-  reminders.forEach(r=>{
-    if(!r.time) return;
+  reminders.forEach(r => {
 
-    if(now>=r.time && !r.fired){
+if(r.mode === "custom"){
+  let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+  let timeStr = r.weeklyTimes?.[dayName];
+
+  if(!timeStr) return;
+
+  let [h,m] = timeStr.split(":");
+  let target = new Date();
+  target.setHours(h, m, 0, 0);
+
+  if(Math.abs(now - target) < 1000){
+    notify(r.text);
+  }
+
+  return;
+}
+
+    if(now.getTime() >= r.time && !r.fired){
       notify(r.text);
 
-      if(r.repeat && r.repeat!="none"){
+      if(r.mode === "interval" && r.repeat){
         r.time += r.repeat;
       } else {
         r.fired = true;
