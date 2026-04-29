@@ -26,7 +26,18 @@
 </div>
 
 <div class="card">
+  <div id="timelineWrapper" style="position:relative;">
   <div id="timeline" style="display:flex; height:20px; overflow:hidden; border-radius:10px;"></div>
+  <div id="timeMarker" style="
+    position:absolute;
+    top:0;
+    width:2px;
+    height:100%;
+    background:black;
+    opacity:0.7;
+    pointer-events:none;
+  "></div>
+</div>
 </div>
 
 <div class="card">
@@ -176,6 +187,25 @@ function toggleRepeatUI(){
     mode === "custom" ? "block" : "none";
 }
 
+function updateTimeMarker(){
+  let now = new Date();
+  let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+  let periods = schedule[dayName];
+  if(!periods) return;
+
+  let start = timeToDate(periods[0].start).getTime();
+  let end = timeToDate(periods[periods.length-1].end).getTime();
+
+  let nowTime = now.getTime();
+
+  let percent = (nowTime - start) / (end - start);
+
+  // clamp between 0–1 so it doesn't go off the bar
+  percent = Math.max(0, Math.min(1, percent));
+
+  document.getElementById("timeMarker").style.left = (percent * 100) + "%";
+}
+
 function renderTimeline(){
   let now = new Date();
   let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
@@ -218,6 +248,7 @@ setInterval(()=>{
   updateToday();
   check();
   renderTimeline();
+  updateTimeMarker();
 },1000);
 
 function toggleDay(){ 
