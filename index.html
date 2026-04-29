@@ -461,8 +461,6 @@ if(periods){
   });
 }
 
-bellTriggers = {};
-
   reminders.forEach(r => {
 
 if(r.mode === "custom"){
@@ -482,7 +480,7 @@ if(r.mode === "custom"){
   return;
 }
 
-    if(now.getTime() >= r.time && !r.fired){
+    if (Math.abs(now.getTime() - r.time) < 1000 && !r.fired) {
       notify(r.text);
 
       if(r.mode === "interval" && r.repeat){
@@ -496,8 +494,15 @@ if(r.mode === "custom"){
   save();
 }
 
+const justHit = now.getTime() >= r.time && now.getTime() < r.time + 1000;
+if (justHit && !r.fired) {
+  notify(r.text);
+  r.fired = true;
+}
+
 if(Notification.permission!="granted") Notification.requestPermission();
-setInterval(()=>{updateToday();check();},1000);
+setInterval(check, 1000);
+setInterval(updateToday, 10000);
 render();
 </script>
 
