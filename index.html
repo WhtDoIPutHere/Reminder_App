@@ -20,6 +20,7 @@
 
 <div class="card">
   <div class="big" id="current"></div>
+  <div id="schoolStart"></div>
   <div id="nextPassing"></div>
   <div id="nextClass"></div>
 </div>
@@ -149,11 +150,6 @@ const schedule = {
   ]
 };
 
-schedule.Tuesday = JSON.parse(JSON.stringify(schedule.Monday));
-schedule.Wednesday = JSON.parse(JSON.stringify(schedule.Monday));
-schedule.Thursday = JSON.parse(JSON.stringify(schedule.Monday));
-schedule.Friday = JSON.parse(JSON.stringify(schedule.Monday));
-
 const classes = {
   A:{1:"Graphic Design",2:"AP Calc",3:"Chemistry",4:"Drafting"},
   B:{5:"Psychology",6:"Health",7:"English",8:"Programming"}
@@ -220,10 +216,21 @@ function updateToday(){
   if(!schedule[dayName]) return;
 
   let periods=schedule[dayName];
+  
+  
+document.getElementById("current").textContent="";
+document.getElementById("schoolStart").textContent="";
+document.getElementById("nextPassing").textContent="";
+document.getElementById("nextClass").textContent="";
 
-  document.getElementById("current").textContent="";
-  document.getElementById("nextPassing").textContent="";
-  document.getElementById("nextClass").textContent="";
+  
+  // Find first actual class (ignore passing)
+let firstClass = periods.find(p => p.name !== "passing");
+
+if(firstClass){
+  document.getElementById("schoolStart").textContent =
+    "School starts: " + firstClass.start;
+}
 
   for(let i=0;i<periods.length;i++){
     let p=periods[i];
