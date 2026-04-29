@@ -26,6 +26,10 @@
 </div>
 
 <div class="card">
+  <div id="timeline" style="display:flex; height:20px; overflow:hidden; border-radius:10px;"></div>
+</div>
+
+<div class="card">
   <h3>School Reminder</h3>
   <div class="row">
     <select id="weekday">
@@ -104,7 +108,7 @@ const schedule = {
     { name:"passing", start:"11:40", end:"11:46" },
     { name:"3/7", start:"11:46", end:"13:18" },
     { name:"passing", start:"13:18", end:"13:22" },
-    { name:"3/7", start:"13:22", end:"13:52" },
+    { name:"Lunch", start:"13:22", end:"13:52" },
     { name:"passing", start:"13:52", end:"13:58" },
     { name:"4/8", start:"13:58", end:"15:30" }
   ],
@@ -118,7 +122,7 @@ const schedule = {
     { name:"passing", start:"12:14", end:"12:20" },
     { name:"3/7", start:"12:20", end:"13:35" },
     { name:"passing", start:"13:35", end:"13:39" },
-    { name:"3/7", start:"13:39", end:"14:09" },
+    { name:"Lunch", start:"13:39", end:"14:09" },
     { name:"passing", start:"14:09", end:"14:15" },
     { name:"4/8", start:"14:15", end:"15:30" }
   ],
@@ -131,7 +135,7 @@ const schedule = {
     { name:"passing", start:"12:06", end:"12:12" },
     { name:"3/7", start:"12:12", end:"13:31" },
     { name:"passing", start:"13:31", end:"13:35" },
-    { name:"3/7", start:"13:35", end:"14:05" },
+    { name:"Lunch", start:"13:35", end:"14:05" },
     { name:"passing", start:"14:05", end:"14:11" },
     { name:"4/8", start:"14:11", end:"15:30" }
   ],
@@ -144,7 +148,7 @@ const schedule = {
     { name:"passing", start:"12:06", end:"12:12" },
     { name:"3/7", start:"12:12", end:"13:31" },
     { name:"passing", start:"13:31", end:"13:35" },
-    { name:"3/7", start:"13:35", end:"14:05" },
+    { name:"Lunch", start:"13:35", end:"14:05" },
     { name:"passing", start:"14:05", end:"14:11" },
     { name:"4/8", start:"14:11", end:"15:30" }
   ]
@@ -171,6 +175,50 @@ function toggleRepeatUI(){
   document.getElementById("customBox").style.display =
     mode === "custom" ? "block" : "none";
 }
+
+function renderTimeline(){
+  let now = new Date();
+  let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+  let periods = schedule[dayName];
+  if(!periods) return;
+
+  let container = document.getElementById("timeline");
+  container.innerHTML = "";
+
+  let totalStart = timeToDate(periods[0].start).getTime();
+  let totalEnd = timeToDate(periods[periods.length-1].end).getTime();
+  let total = totalEnd - totalStart;
+
+  periods.forEach(p => {
+    let s = timeToDate(p.start).getTime();
+    let e = timeToDate(p.end).getTime();
+
+    let width = ((e - s) / total) * 100;
+
+    let div = document.createElement("div");
+    div.style.width = width + "%";
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.justifyContent = "center";
+    div.style.fontSize = "10px";
+
+    if(p.name === "passing"){
+      div.style.background = "#ccc";
+      div.textContent = "";
+    } else {
+      div.style.background = "#4a90e2";
+      div.textContent = getClass(p.name);
+    }
+
+    container.appendChild(div);
+  });
+}
+
+setInterval(()=>{
+  updateToday();
+  check();
+  renderTimeline();
+},1000);
 
 function toggleDay(){ 
   dayType = dayType==='A'?'B':'A'; 
@@ -311,6 +359,12 @@ if(mode === "custom"){
   render();
 }
 
+let bellTriggers = {};
+
+function getTodayKey(){
+  return new Date().toDateString();
+}
+
 function render(){
   let list=document.getElementById("list"); list.innerHTML="";
   reminders.forEach(r=>{
@@ -328,7 +382,55 @@ function notify(t){
 }
 
 function check(){
-  let now = new Date();
+    
+    let now = new Date();
+let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+let periods = schedule[dayName];
+
+if(periods){
+  periods.forEach((p, i) => {
+    if(p.name === "passing") return;
+
+    let start = timeToDate(p.start);
+    let end = timeToDate(p.end);
+
+    let keyBase = getTodayKey() + "_" + i;
+
+    // 10 min before
+    if(now >= new Date(start.getTime() - 600000) && now < start){
+      if(!bellTriggers[keyBase+"_10"]){
+        notify("Wrap up what you're doing");
+        bellTriggers[keyBase+"_10"] = true;
+      }
+    }
+
+    // 5 min before
+    if(now >= new Date(start.getTime() - 300000) && now < start){
+      if(!bellTriggers[keyBase+"_5"]){
+        notify("Go to " + getClass(p.name));
+        bellTriggers[keyBase+"_5"] = true;
+      }
+    }
+
+    // during passing (right after class ends)
+    let next = periods[i+1];
+    if(next && next.name === "passing"){
+      let passStart = timeToDate(next.start);
+
+      if(now >= passStart && now < timeToDate(next.end)){
+        if(!bellTriggers[keyBase+"_pass"]){
+          let nextClass = periods[i+2];
+          if(nextClass){
+            notify("Head to " + getClass(nextClass.name));
+          }
+          bellTriggers[keyBase+"_pass"] = true;
+        }
+      }
+    }
+  });
+}
+
+bellTriggers = {};
 
   reminders.forEach(r => {
 
