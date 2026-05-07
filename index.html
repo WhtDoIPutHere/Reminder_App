@@ -191,7 +191,7 @@ function updateTimeMarker(){
   let now = new Date();
   let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
   let periods = schedule[dayName];
-  if(!periods) return;
+  if(!periods || periods.length === 0) return;
 
   let start = timeToDate(periods[0].start).getTime();
   let end = timeToDate(periods[periods.length-1].end).getTime();
@@ -210,7 +210,7 @@ function renderTimeline(){
   let now = new Date();
   let dayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
   let periods = schedule[dayName];
-  if(!periods) return;
+  if(!periods || periods.length === 0) return;
 
   let container = document.getElementById("timeline");
   container.innerHTML = "";
@@ -247,7 +247,6 @@ function renderTimeline(){
 setInterval(()=>{
   updateToday();
   check();
-  renderTimeline();
   updateTimeMarker();
 },1000);
 
@@ -292,7 +291,7 @@ function updateToday(){
 
   let now=new Date();
   let dayName=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
-  if(!schedule[dayName]) return;
+  if(!schedule[dayName] || schedule[dayName].length === 0) return;
 
   let periods=schedule[dayName];
   
@@ -303,12 +302,23 @@ document.getElementById("nextPassing").textContent="";
 document.getElementById("nextClass").textContent="";
 
   
-  // Find first actual class (ignore passing)
+// Find first actual class (ignore passing)
 let firstClass = periods.find(p => p.name !== "passing");
 
 if(firstClass){
-  document.getElementById("schoolStart").textContent =
-    "School starts: " + firstClass.start;
+
+  let schoolStartTime = timeToDate(firstClass.start);
+
+  if(now < schoolStartTime){
+
+    document.getElementById("schoolStart").textContent =
+      "School starts: " + firstClass.start;
+
+  } else {
+
+    document.getElementById("schoolStart").textContent = "";
+
+  }
 }
 
   for(let i=0;i<periods.length;i++){
@@ -409,7 +419,14 @@ function del(id){ reminders=reminders.filter(r=>r.id!==id); save(); render(); }
 function save(){ localStorage.setItem("reminders",JSON.stringify(reminders)); }
 
 function notify(t){
-  if(Notification.permission==="granted") new Notification(t);
+
+  if(Notification.permission === "granted"){
+
+    new Notification("School Reminder", {
+      body: t
+    });
+
+  }
 }
 
 function check(){
@@ -461,6 +478,12 @@ if(periods){
   });
 }
 
+reminders = reminders.filter(r =>
+  r.mode === "interval" ||
+  r.mode === "custom" ||
+  now < r.time + 86400000
+);
+
   reminders.forEach(r => {
 
 if(r.mode === "custom"){
@@ -473,36 +496,45 @@ if(r.mode === "custom"){
   let target = new Date();
   target.setHours(h, m, 0, 0);
 
-  if(Math.abs(now - target) < 1000){
+  let key = getTodayKey() + "_" + r.id;
+
+if(Math.abs(now - target) < 1000 && !bellTriggers[key]){
     notify(r.text);
-  }
+    bellTriggers[key] = true;
+}
 
   return;
 }
 
-    if (Math.abs(now.getTime() - r.time) < 1000 && !r.fired) {
-      notify(r.text);
+    if(now >= r.time && !r.fired){
 
-      if(r.mode === "interval" && r.repeat){
-        r.time += r.repeat;
-      } else {
+    notify(r.text);
+
+    if(r.mode === "interval" && r.repeat){
+
         r.fired = true;
-      }
+
+        setTimeout(() => {
+
+            r.time += r.repeat;
+            r.fired = false;
+            save();
+
+        }, 1000);
+
+    } else {
+
+        r.fired = true;
+
     }
+}
   });
 
   save();
 }
 
-const justHit = now.getTime() >= r.time && now.getTime() < r.time + 1000;
-if (justHit && !r.fired) {
-  notify(r.text);
-  r.fired = true;
-}
-
 if(Notification.permission!="granted") Notification.requestPermission();
-setInterval(check, 1000);
-setInterval(updateToday, 10000);
+renderTimeline();
 render();
 </script>
 
