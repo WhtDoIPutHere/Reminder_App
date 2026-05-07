@@ -20,9 +20,10 @@
 
 <div class="card">
   <div class="big" id="current"></div>
-  <div id="schoolStart"></div>
-  <div id="nextPassing"></div>
-  <div id="nextClass"></div>
+<div id="currentTime"></div>
+<div id="schoolStart"></div>
+<div id="nextPassing"></div>
+<div id="nextClass"></div>
 </div>
 
 <div class="card">
@@ -290,6 +291,13 @@ function updateToday(){
   document.getElementById("dayBtn").innerText = dayType+" Day";
 
   let now=new Date();
+  document.getElementById("currentTime").textContent =
+  "Current Time: " +
+  now.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit'
+  });
   let dayName=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
   if(!schedule[dayName] || schedule[dayName].length === 0) return;
 
